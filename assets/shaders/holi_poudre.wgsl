@@ -23,7 +23,7 @@
 // Source : https://github.com/bevyengine/bevy/blob/release-0.19.1/crates/bevy_pbr/src/render/view_transformations.wgsl#L229-L232
 #import bevy_pbr::view_transformations::{frag_coord_to_ndc, position_ndc_to_world}
 
-// Même ordre et mêmes types que `ParamsVolume` (materiaux.rs).
+// Même ordre et mêmes types que `ParamsVolume` (poudre/mod.rs).
 struct VolumeHoli {
     boite_min: vec3<f32>,
     cellule: f32,

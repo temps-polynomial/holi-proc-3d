@@ -1,6 +1,6 @@
-//! Volume de poudre statique, calculé sur le CPU.
+//! Calcul du volume de poudre sur le CPU (fait une seule fois au lancement).
 //!
-//! Produit les deux textures 3D lues par le shader de raymarching (`holi.wgsl`) :
+//! Produit les deux textures 3D lues par le shader de raymarching (`holi_poudre.wgsl`) :
 //!   couleur : RGBA8 = couleur de la poudre, sqrt(densité / 5)
 //!   lumiere : RG8   = transmittance du soleil (poudre au-dessus du voxel), occlusion locale
 //! Chaque panache est une chaîne de bouffées douces qui monte depuis un canon.
@@ -11,7 +11,7 @@
 // Doc : https://docs.rs/bevy/latest/bevy/math/struct.Vec3.html
 use bevy::math::Vec3;
 
-use crate::geometrie::Alea;
+use crate::alea::Alea;
 
 /// Résolution de la grille (en cellules).
 pub const NX: usize = 160;

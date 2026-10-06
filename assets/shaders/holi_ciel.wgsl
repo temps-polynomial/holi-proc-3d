@@ -11,7 +11,7 @@
 // Doc : https://docs.rs/bevy/latest/bevy/render/globals/struct.GlobalsUniform.html
 #import bevy_pbr::mesh_view_bindings::{view, globals}
 
-// Même ordre et mêmes types que `ParamsCiel` (materiaux.rs).
+// Même ordre et mêmes types que `ParamsCiel` (ciel.rs).
 struct CielHoli {
     dir_soleil: vec3<f32>,
     gain: f32,
