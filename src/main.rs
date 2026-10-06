@@ -120,19 +120,19 @@ impl Default for Toggles {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct Layer(usize);
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct ToggleButton(usize);
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct TogglePanel;
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct Sun;
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct Balloon {
     phase: f32,
     base_y: f32,
@@ -142,7 +142,7 @@ struct Balloon {
 struct GrassHandle(Handle<GrassMaterial>);
 
 /// Minimal orbit camera: drag to rotate, shift+drag to pan, scroll to zoom.
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct Orbit {
     distance: f32,
     yaw: f32,
@@ -197,6 +197,11 @@ fn volume_image(w: usize, h: usize, d: usize, data: Vec<u8>, format: TextureForm
     img
 }
 
+/// A mesh with its material, shown or hidden by toggle `layer`.
+fn part<M: Material>(mesh: Handle<Mesh>, material: Handle<M>, layer: usize) -> impl Scene {
+    bsn! { Mesh3d(mesh) MeshMaterial3d::<M>(material) Layer(layer) }
+}
+
 fn setup_volume(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -230,21 +235,12 @@ fn setup_volume(
         lvol: light,
         detail,
     });
-    commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(BOX.x, BOX.y, BOX.z))),
-        MeshMaterial3d(material),
-        Transform::from_xyz(0.0, BOX.y / 2.0, 0.0),
-        NotShadowCaster,
-        Layer(POWDER),
-        Name::new("PowderVolume"),
-    ));
-    commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(700.0))),
-        MeshMaterial3d(skies.add(HoliSky { params: SkyParams { sun_dir: sun_dir(), gain: 1.0 } })),
-        NotShadowCaster,
-        Layer(SKY),
-        Name::new("Sky"),
-    ));
+    let sky = skies.add(HoliSky { params: SkyParams { sun_dir: sun_dir(), gain: 1.0 } });
+    commands.spawn_scene_list(bsn_list![
+        #PowderVolume part(meshes.add(Cuboid::new(BOX.x, BOX.y, BOX.z)), material, POWDER)
+            Transform::from_xyz(0.0, BOX.y / 2.0, 0.0) NotShadowCaster,
+        #Sky part(meshes.add(Sphere::new(700.0)), sky, SKY) NotShadowCaster,
+    ]);
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -264,12 +260,10 @@ fn setup_world(
     let bark = nature_mats.add(nature(4.0, [0.05, 0.035, 0.025], [0.17, 0.13, 0.095], 5.0, 0.35, 1.0));
 
     // meadow + rolling hills
-    commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(900.0, 0.2, 900.0))),
-        MeshMaterial3d(meadow),
-        Transform::from_xyz(0.0, -0.1, 0.0),
-        Name::new("Meadow"),
-    ));
+    commands.spawn_scene(bsn! {
+        #Meadow Mesh3d(asset_value(Cuboid::new(900.0, 0.2, 900.0))) MeshMaterial3d::<NatureMaterial>(meadow)
+        Transform::from_xyz(0.0, -0.1, 0.0)
+    });
     let hill_mesh = meshes.add(Sphere::new(1.0).mesh().ico(4).unwrap());
     let mut hills = Vec::new();
     for i in 0..14 {
@@ -278,13 +272,9 @@ fn setup_world(
         let d = rng.range(70.0, 120.0);
         let (centre, radii) = (Vec3::new(a.cos() * d, -r * 0.78, a.sin() * d), Vec3::new(r * 1.6, r, r * 1.3));
         hills.push((centre, radii));
-        commands.spawn((
-            Mesh3d(hill_mesh.clone()),
-            MeshMaterial3d(hill.clone()),
-            Transform::from_translation(centre).with_scale(radii),
-            NotShadowCaster,
-            Layer(HILLS),
-        ));
+        commands.spawn_scene(bsn! {
+            part(hill_mesh.clone(), hill.clone(), HILLS) Transform { translation: centre, scale: radii } NotShadowCaster
+        });
     }
 
     // grass carpet with flowers, swayed by the wind vertex shader
@@ -298,25 +288,17 @@ fn setup_world(
         extension: Grass { params: GrassParams { now: 0.0, wind: Vec4::new(0.8, 0.0, 0.6, 0.045) } },
     });
     commands.insert_resource(GrassHandle(grass.clone()));
-    commands.spawn((
-        Mesh3d(meshes.add(grass_mesh(4))),
-        MeshMaterial3d(grass),
-        NotShadowCaster,
-        Layer(GRASS),
-        Name::new("Grass"),
-    ));
+    commands.spawn_scene(bsn! { #Grass part(meshes.add(grass_mesh(4)), grass, GRASS) NotShadowCaster });
 
     // stage + cannons
-    commands.spawn((
-        Mesh3d(meshes.add(Cylinder::new(2.2, 0.16))),
-        MeshMaterial3d(std.add(StandardMaterial {
+    commands.spawn_scene(bsn! {
+        part(meshes.add(Cylinder::new(2.2, 0.16)), std.add(StandardMaterial {
             base_color: Color::srgb(0.93, 0.86, 0.74),
             perceptual_roughness: 0.75,
             ..default()
-        })),
-        Transform::from_xyz(0.0, 0.08, 0.0),
-        Layer(STAGE),
-    ));
+        }), STAGE)
+        Transform::from_xyz(0.0, 0.08, 0.0)
+    });
     let barrel = meshes.add(Cylinder::new(0.17, 0.75));
     let drum = meshes.add(Cylinder::new(0.32, 0.36));
     let drum_mat = std.add(StandardMaterial {
@@ -332,15 +314,12 @@ fn setup_world(
             perceptual_roughness: 0.3,
             ..default()
         });
-        commands.spawn((Mesh3d(drum.clone()), MeshMaterial3d(drum_mat.clone()), Transform::from_xyz(w.x, 0.18, w.z), Layer(STAGE)));
         let d = aim.normalize();
-        commands.spawn((
-            Mesh3d(barrel.clone()),
-            MeshMaterial3d(paint),
-            Transform::from_translation(Vec3::new(w.x, 0.36, w.z) + d * 0.3)
-                .with_rotation(Quat::from_rotation_arc(Vec3::Y, d)),
-            Layer(STAGE),
-        ));
+        commands.spawn_scene_list(bsn_list![
+            part(drum.clone(), drum_mat.clone(), STAGE) Transform::from_xyz(w.x, 0.18, w.z),
+            part(barrel.clone(), paint, STAGE)
+                Transform { translation: {Vec3::new(w.x, 0.36, w.z) + d * 0.3}, rotation: Quat::from_rotation_arc(Vec3::Y, d) },
+        ]);
     }
 
     // trees: grown procedurally (branching bark + alpha-masked leaf cards)
@@ -358,7 +337,6 @@ fn setup_world(
         })
         .collect();
     let f = forest(&real, 5);
-    commands.spawn((Mesh3d(meshes.add(f.bark_mesh())), MeshMaterial3d(bark), Layer(TREES), Name::new("Branches")));
     let leaf_tex = Image::new(
         Extent3d { width: 128, height: 128, depth_or_array_layers: 1 },
         TextureDimension::D2,
@@ -366,9 +344,9 @@ fn setup_world(
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::RENDER_WORLD,
     );
-    commands.spawn((
-        Mesh3d(meshes.add(f.leaf_mesh())),
-        MeshMaterial3d(std.add(StandardMaterial {
+    commands.spawn_scene_list(bsn_list![
+        #Branches part(meshes.add(f.bark_mesh()), bark, TREES),
+        #Leaves part(meshes.add(f.leaf_mesh()), std.add(StandardMaterial {
             base_color_texture: Some(images.add(leaf_tex)),
             alpha_mode: AlphaMode::Mask(0.5),
             cull_mode: None,
@@ -376,10 +354,8 @@ fn setup_world(
             reflectance: 0.15,
             diffuse_transmission: 0.15,
             ..default()
-        })),
-        Layer(TREES),
-        Name::new("Leaves"),
-    ));
+        }), TREES),
+    ]);
 
     // rocks and flowering bushes (each set merged into one mesh)
     let rocks: Vec<_> = (0..14)
@@ -388,7 +364,7 @@ fn setup_world(
             (Vec3::new(a.cos() * r, 0.1 * s, a.sin() * r), Vec3::new(s * 1.3, s * 0.6, s), rng.range(0.0, TAU))
         })
         .collect();
-    commands.spawn((Mesh3d(meshes.add(blob_mesh(&rocks))), MeshMaterial3d(rock), Layer(ROCKS)));
+    commands.spawn_scene(bsn! { part(meshes.add(blob_mesh(&rocks)), rock, ROCKS) });
     let mut bushes = Vec::new();
     for _ in 0..14 {
         let (a, r) = (rng.range(0.0, TAU), rng.range(5.0, 12.0));
@@ -402,7 +378,7 @@ fn setup_world(
             ));
         }
     }
-    commands.spawn((Mesh3d(meshes.add(blob_mesh(&bushes))), MeshMaterial3d(bush), Layer(ROCKS)));
+    commands.spawn_scene(bsn! { part(meshes.add(blob_mesh(&bushes)), bush, ROCKS) });
 
     // wooden fence ring
     let wood = std.add(StandardMaterial {
@@ -417,16 +393,14 @@ fn setup_world(
     let rail = meshes.add(Cuboid::new(seg + 0.1, 0.07, 0.05));
     for i in 0..posts {
         let a = i as f32 / posts as f32 * TAU;
-        commands.spawn((Mesh3d(post.clone()), MeshMaterial3d(wood.clone()), Transform::from_xyz(a.cos() * fence_r, 0.5, a.sin() * fence_r), Layer(DECOR)));
+        commands.spawn_scene(bsn! { part(post.clone(), wood.clone(), DECOR) Transform::from_xyz(a.cos() * fence_r, 0.5, a.sin() * fence_r) });
         let am = (i as f32 + 0.5) / posts as f32 * TAU;
         let mid = Vec3::new(am.cos(), 0.0, am.sin()) * fence_r * (PI / posts as f32).cos();
         for y in [0.45, 0.8] {
-            commands.spawn((
-                Mesh3d(rail.clone()),
-                MeshMaterial3d(wood.clone()),
-                Transform::from_xyz(mid.x, y, mid.z).with_rotation(Quat::from_rotation_y(-am + PI / 2.0)),
-                Layer(DECOR),
-            ));
+            commands.spawn_scene(bsn! {
+                part(rail.clone(), wood.clone(), DECOR)
+                Transform { translation: Vec3::new(mid.x, y, mid.z), rotation: Quat::from_rotation_y(-am + PI / 2.0) }
+            });
         }
     }
 
@@ -452,7 +426,7 @@ fn setup_world(
         .map(|i| {
             let a = i as f32 / poles as f32 * TAU + 0.1;
             let p = Vec3::new(a.cos() * pr, 0.0, a.sin() * pr);
-            commands.spawn((Mesh3d(pole.clone()), MeshMaterial3d(wood.clone()), Transform::from_xyz(p.x, 1.7, p.z), Layer(DECOR)));
+            commands.spawn_scene(bsn! { part(pole.clone(), wood.clone(), DECOR) Transform::from_xyz(p.x, 1.7, p.z) });
             Vec3::new(p.x, 3.35, p.z)
         })
         .collect();
@@ -465,25 +439,21 @@ fn setup_world(
         for j in 1..=10 {
             let cur = sag(j as f32 / 10.0);
             let d = cur - prev;
-            commands.spawn((
-                Mesh3d(string.clone()),
-                MeshMaterial3d(white.clone()),
-                Transform::from_translation((cur + prev) * 0.5)
-                    .with_rotation(Quat::from_rotation_arc(Vec3::Y, d.normalize()))
-                    .with_scale(Vec3::new(1.0, d.length(), 1.0)),
-                Layer(DECOR),
-            ));
+            commands.spawn_scene(bsn! {
+                part(string.clone(), white.clone(), DECOR) Transform {
+                    translation: {(cur + prev) * 0.5},
+                    rotation: Quat::from_rotation_arc(Vec3::Y, d.normalize()),
+                    scale: Vec3::new(1.0, d.length(), 1.0),
+                }
+            });
             prev = cur;
         }
         let nflags = ((p1 - p0).length() / 0.42) as usize;
         for j in 1..nflags {
-            commands.spawn((
-                Mesh3d(flag.clone()),
-                MeshMaterial3d(flag_mats[k % flag_mats.len()].clone()),
-                Transform::from_translation(sag(j as f32 / nflags as f32)).with_rotation(Quat::from_rotation_y(yaw)),
-                NotShadowCaster,
-                Layer(DECOR),
-            ));
+            commands.spawn_scene(bsn! {
+                part(flag.clone(), flag_mats[k % flag_mats.len()].clone(), DECOR) NotShadowCaster
+                Transform { translation: sag(j as f32 / nflags as f32), rotation: Quat::from_rotation_y(yaw) }
+            });
             k += 1;
         }
     }
@@ -502,93 +472,49 @@ fn setup_world(
             ..default()
         });
         let length = y / 1.15;
-        commands
-            .spawn((
-                Mesh3d(balloon.clone()),
-                MeshMaterial3d(mat),
-                Transform::from_xyz(a.cos() * r, y, a.sin() * r).with_scale(Vec3::new(1.0, 1.15, 1.0)),
-                Balloon { phase: rng.range(0.0, TAU), base_y: y },
-                Layer(DECOR),
-            ))
-            .with_child((
-                Mesh3d(string.clone()),
-                MeshMaterial3d(white.clone()),
-                Transform::from_xyz(0.0, -0.25 - length / 2.0, 0.0).with_scale(Vec3::new(1.0, length, 1.0)),
-            ));
+        commands.spawn_scene(bsn! {
+            part(balloon.clone(), mat, DECOR) Balloon { phase: {rng.range(0.0, TAU)}, base_y: y }
+            Transform { translation: Vec3::new(a.cos() * r, y, a.sin() * r), scale: Vec3::new(1.0, 1.15, 1.0) }
+            Children [
+                Mesh3d({string.clone()}) MeshMaterial3d::<StandardMaterial>({white.clone()})
+                Transform { translation: Vec3::new(0.0, -0.25 - length / 2.0, 0.0), scale: Vec3::new(1.0, length, 1.0) }
+            ]
+        });
     }
 
-    commands.spawn((
-        DirectionalLight {
-            illuminance: 16000.0,
-            shadow_maps_enabled: true,
-            color: Color::srgb(1.0, 0.88, 0.7),
-            ..default()
-        },
-        Transform::from_translation(sun_dir() * 30.0).looking_at(Vec3::ZERO, Vec3::Y),
-        Sun,
-    ));
+    commands.spawn_scene(bsn! {
+        Sun DirectionalLight { illuminance: 16000.0, shadow_maps_enabled: true, color: Color::srgb(1.0, 0.88, 0.7) }
+        template_value(Transform::from_translation(sun_dir() * 30.0).looking_at(Vec3::ZERO, Vec3::Y))
+    });
 }
 
 fn setup_camera_and_ui(mut commands: Commands) {
-    commands.spawn((
-        Camera3d::default(),
-        Hdr,
-        DepthPrepass,
-        Tonemapping::AcesFitted,
-        ColorGrading {
-            global: ColorGradingGlobal { post_saturation: SATURATION, temperature: TEMPERATURE, ..default() },
-            ..default()
-        },
-        Bloom { intensity: BLOOM, ..Bloom::NATURAL },
-        Vignette { intensity: VIGNETTE, radius: 0.85, smoothness: 3.0, ..default() },
-        DepthOfField {
-            mode: DepthOfFieldMode::Bokeh,
-            focal_distance: 11.5,
-            sensor_height: 0.32,
-            aperture_f_stops: F_STOPS,
-            ..default()
-        },
-        Orbit { distance: 11.5, yaw: 0.4, pitch: 0.17, target: Vec3::new(0.0, 1.5, 0.0) },
-        Transform::default(),
-    ));
+    commands.spawn_scene(bsn! {
+        Camera3d Hdr DepthPrepass template_value(Tonemapping::AcesFitted) Transform
+        ColorGrading { global: ColorGradingGlobal { post_saturation: SATURATION, temperature: TEMPERATURE } }
+        Bloom::NATURAL Bloom { intensity: BLOOM } Vignette { intensity: VIGNETTE, radius: 0.85, smoothness: 3.0 }
+        DepthOfField { mode: DepthOfFieldMode::Bokeh, focal_distance: 11.5, sensor_height: 0.32, aperture_f_stops: F_STOPS }
+        Orbit { distance: 11.5, yaw: 0.4, pitch: 0.17, target: Vec3::new(0.0, 1.5, 0.0) }
+    });
 
-    commands.spawn((
-        Text::new("HOLI (Rust Bevy 0.19) - static powder\ndrag orbit, shift+drag pan, scroll zoom"),
-        TextFont::from_font_size(16.0),
-        Node { position_type: PositionType::Absolute, top: Val::Px(12.0), left: Val::Px(14.0), ..default() },
-        BackgroundColor(Color::srgba(0.1, 0.1, 0.25, 0.3)),
-    ));
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                bottom: Val::Px(12.0),
-                right: Val::Px(12.0),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(2.0),
-                padding: UiRect::all(Val::Px(6.0)),
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.05, 0.08, 0.18, 0.45)),
-            TogglePanel,
-        ))
-        .with_children(|panel| {
-            panel.spawn((
-                Text::new("toggles (Tab hides)"),
-                TextFont::from_font_size(13.0),
-                TextColor(Color::srgba(1.0, 1.0, 1.0, 0.7)),
-            ));
-            for i in 0..TOGGLES.len() {
-                panel
-                    .spawn((
-                        Node { padding: UiRect::axes(Val::Px(8.0), Val::Px(3.0)), ..default() },
-                        Button,
-                        BackgroundColor(Color::srgba(0.2, 0.6, 0.3, 0.55)),
-                        ToggleButton(i),
-                    ))
-                    .with_child((Text::new(""), TextFont::from_font_size(14.0), ToggleButton(i)));
-            }
-        });
+    commands.spawn_scene(bsn! {
+        Text("HOLI (Rust Bevy 0.19) - static powder\ndrag orbit, shift+drag pan, scroll zoom") TextFont { font_size: {16.0} }
+        Node { position_type: PositionType::Absolute, top: px(12), left: px(14) } BackgroundColor(Color::srgba(0.1, 0.1, 0.25, 0.3))
+    });
+    commands.spawn_scene(bsn! {
+        TogglePanel BackgroundColor(Color::srgba(0.05, 0.08, 0.18, 0.45))
+        Node {
+            position_type: PositionType::Absolute, bottom: px(12), right: px(12),
+            flex_direction: FlexDirection::Column, row_gap: px(2), padding: UiRect::all(px(6)),
+        }
+        Children [
+            Text("toggles (Tab hides)") TextFont { font_size: {13.0} } TextColor(Color::srgba(1.0, 1.0, 1.0, 0.7)),
+            {(0..TOGGLES.len()).map(|i| bsn! {
+                Node { padding: UiRect::axes(px(8), px(3)) } Button ToggleButton(i) BackgroundColor(Color::srgba(0.2, 0.6, 0.3, 0.55))
+                Children [Text("") TextFont { font_size: {14.0} } ToggleButton(i)]
+            }).collect::<Vec<_>>()}
+        ]
+    });
 }
 
 fn orbit_camera(
