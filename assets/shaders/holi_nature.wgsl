@@ -21,7 +21,7 @@
     pbr_functions::{apply_pbr_lighting, main_pass_post_lighting_processing},
 }
 
-// Même ordre et mêmes types que `ParamsNature` (materiaux.rs).
+// Même ordre et mêmes types que `ParamsNature` (decor/nature.rs).
 struct Nature {
     genre: f32,
     couleur_a: vec4<f32>,

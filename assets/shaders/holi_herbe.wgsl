@@ -22,7 +22,7 @@
 #import bevy_pbr::forward_io::{Vertex, VertexOutput}
 #endif
 
-// Même ordre et mêmes types que `ParamsHerbe` (materiaux.rs).
+// Même ordre et mêmes types que `ParamsHerbe` (herbe.rs).
 struct Herbe {
     maintenant: f32,
     vent: vec4<f32>,
