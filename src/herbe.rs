@@ -87,7 +87,14 @@ type MateriauHerbe = ExtendedMaterial<StandardMaterial, Herbe>;
 // Book : https://bevy.org/learn/book/assets/lifetimes/#preloading
 // Doc : https://docs.rs/bevy/latest/bevy/ecs/resource/trait.Resource.html
 // Doc : https://docs.rs/bevy/latest/bevy/asset/enum.Handle.html
-#[derive(Resource)]
+// Deref / DerefMut : la ressource se comporte comme le Handle qu'elle contient ; ses méthodes
+// (ex. `id()`) s'appellent directement, sans `.0`.
+// Book : https://bevy.org/learn/book/storing-data/designing-components/#guidance-for-structuring-components
+// Ex : https://github.com/bevyengine/bevy/blob/release-0.19.1/examples/ecs/message.rs#L22-L25
+// Doc : https://docs.rs/bevy/latest/bevy/prelude/derive.Deref.html
+// Doc : https://docs.rs/bevy/latest/bevy/prelude/derive.DerefMut.html
+// Rust : https://doc.rust-lang.org/book/ch15-02-deref.html#implementing-the-deref-trait
+#[derive(Resource, Deref, DerefMut)]
 struct PoigneeHerbe(Handle<MateriauHerbe>);
 
 /// Système Startup : matériau, ressource PoigneeHerbe et entité du tapis d'herbe.
@@ -138,7 +145,9 @@ fn creer_herbe(mut commands: Commands, mut maillages: ResMut<Assets<Mesh>>, mut 
 // Doc : https://docs.rs/bevy/latest/bevy/asset/struct.Assets.html#method.get_mut
 // Doc : https://docs.rs/bevy/latest/bevy/time/struct.Time.html#method.elapsed_secs
 fn agiter_herbe(temps: Res<Time>, bascules: Res<Bascules>, poignee: Res<PoigneeHerbe>, mut mats_herbe: ResMut<Assets<MateriauHerbe>>) {
-    if let Some(mut m) = mats_herbe.get_mut(&poignee.0) {
+    // poignee.id() : méthode du Handle contenu, atteinte via Res puis Deref ; renvoie l'AssetId.
+    // Doc : https://docs.rs/bevy/latest/bevy/asset/enum.Handle.html#method.id
+    if let Some(mut m) = mats_herbe.get_mut(poignee.id()) {
         m.extension.params.maintenant = temps.elapsed_secs();
         m.extension.params.vent.w = if bascules.actif(Bascule::Vent) { 0.045 } else { 0.0 };
     }

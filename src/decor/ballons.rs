@@ -36,7 +36,6 @@ pub fn creer_ballons(
     mut standards: ResMut<Assets<StandardMaterial>>,
     mut alea: ResMut<AleaDecor>,
 ) {
-    let alea = &mut alea.0;
     let ballon = maillages.add(Sphere::new(0.26));
     let fil = maillages.add(Cylinder::new(0.008, 1.0));
     // StandardMaterial { ..default() } : matériau PBR, champs non cités par défaut.
@@ -47,6 +46,9 @@ pub fn creer_ballons(
     // Doc : https://docs.rs/bevy/latest/bevy/color/enum.Color.html#method.srgb
     let blanc = standards.add(StandardMaterial { base_color: Color::srgb(0.95, 0.95, 0.95), ..default() });
     for i in 0..14 {
+        // alea.entre(...) : ResMut<AleaDecor> -> AleaDecor -> Alea, par Deref/DerefMut (voir decor/mod.rs).
+        // Doc : https://docs.rs/bevy/latest/bevy/prelude/derive.DerefMut.html
+        // Rust : https://doc.rust-lang.org/book/ch15-02-deref.html#using-deref-coercion-in-functions-and-methods
         let a = i as f32 / 14.0 * TAU + alea.entre(-0.15, 0.15);
         let r = alea.entre(4.2, 9.0);
         let y = alea.entre(1.4, 2.8);

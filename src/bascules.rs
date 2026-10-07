@@ -125,14 +125,23 @@ impl Bascules {
 /// Bascule qui montre/masque l'entité.
 // Component : donnée attachée à une entité.
 // Default + Clone : requis pour utiliser le composant dans `bsn!` (gabarit FromTemplate automatique).
+// Deref / DerefMut : le composant se comporte comme la Bascule qu'il contient (lecture / écriture) :
+// `*calque` donne la Bascule (`**calque` depuis une référence &Calque, comme dans une requête), et
+// les méthodes de Bascule s'appellent directement sur le composant. Remplace l'accès `calque.0`.
 // Book : https://bevy.org/learn/book/storing-data/entities-components/#defining-components
+// Book : https://bevy.org/learn/book/storing-data/designing-components/#guidance-for-structuring-components
+// Ex : https://github.com/bevyengine/bevy/blob/release-0.19.1/examples/math/bounding_2d.rs#L196-L197
+// Ex : https://github.com/bevyengine/bevy/blob/release-0.19.1/examples/math/bounding_2d.rs#L182-L184
 // Doc : https://docs.rs/bevy/latest/bevy/ecs/component/trait.Component.html
 // Doc : https://docs.rs/bevy/latest/bevy/ecs/template/trait.FromTemplate.html
-#[derive(Component, Default, Clone)]
+// Doc : https://docs.rs/bevy/latest/bevy/prelude/derive.Deref.html
+// Doc : https://docs.rs/bevy/latest/bevy/prelude/derive.DerefMut.html
+// Rust : https://doc.rust-lang.org/book/ch15-02-deref.html#implementing-the-deref-trait
+#[derive(Component, Default, Clone, Deref, DerefMut)]
 pub struct Calque(pub Bascule);
 
 /// Ligne du panneau (et son texte) associée à une bascule.
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Deref, DerefMut)]
 struct BoutonBascule(Bascule);
 
 /// Marqueur du panneau, pour le retrouver dans une requête.
@@ -246,7 +255,8 @@ fn saisie_bascules(
     }
     for (interaction, bouton) in &boutons {
         if *interaction == Interaction::Pressed {
-            bascules.inverser(bouton.0);
+            // **bouton : la 1re * suit la référence &BoutonBascule, la 2e passe par Deref vers la Bascule.
+            bascules.inverser(**bouton);
         }
     }
     if touches.just_pressed(KeyCode::Tab) {
@@ -270,14 +280,15 @@ fn appliquer_bascules(
     mut lignes: Query<(&mut BackgroundColor, &BoutonBascule), Without<Text>>,
 ) {
     for (calque, mut vis) in &mut calques {
-        *vis = if bascules.actif(calque.0) { Visibility::Inherited } else { Visibility::Hidden };
+        *vis = if bascules.actif(**calque) { Visibility::Inherited } else { Visibility::Hidden };
     }
     for (mut texte, bouton) in &mut libelles {
-        let (_, nom_touche, libelle) = bouton.0.infos();
-        let etat = if bascules.actif(bouton.0) { "oui" } else { "non" };
+        // infos() est une méthode de Bascule, appelée directement sur le composant grâce à Deref.
+        let (_, nom_touche, libelle) = bouton.infos();
+        let etat = if bascules.actif(**bouton) { "oui" } else { "non" };
         texte.0 = format!("[{nom_touche}]  {etat}   {libelle}");
     }
     for (mut fond, bouton) in &mut lignes {
-        fond.0 = if bascules.actif(bouton.0) { Color::srgba(0.2, 0.6, 0.3, 0.55) } else { Color::srgba(0.35, 0.35, 0.4, 0.45) };
+        fond.0 = if bascules.actif(**bouton) { Color::srgba(0.2, 0.6, 0.3, 0.55) } else { Color::srgba(0.35, 0.35, 0.4, 0.45) };
     }
 }
