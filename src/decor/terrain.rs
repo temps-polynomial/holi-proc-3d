@@ -17,14 +17,18 @@ use crate::maillage;
 // Vec3 : vecteur 3D (glam) ; opérateurs et méthodes (normalize, to_array...) sur la même page.
 // Ex : https://github.com/bevyengine/bevy/blob/release-0.19.1/examples/transforms/transform.rs#L107-L110
 // Doc : https://docs.rs/bevy/latest/bevy/math/struct.Vec3.html
-#[derive(Resource)]
+// Deref / DerefMut : la ressource se comporte comme le Vec qu'elle contient (ex. `self.iter()`).
+// Book : https://bevy.org/learn/book/storing-data/designing-components/#guidance-for-structuring-components
+// Doc : https://docs.rs/bevy/latest/bevy/prelude/derive.Deref.html
+// Doc : https://docs.rs/bevy/latest/bevy/prelude/derive.DerefMut.html
+// Rust : https://doc.rust-lang.org/book/ch15-02-deref.html#implementing-the-deref-trait
+#[derive(Resource, Deref, DerefMut)]
 pub struct Collines(Vec<(Vec3, Vec3)>);
 
 impl Collines {
     /// Hauteur du sol en (x, z) : la prairie, ou le sommet d'un ellipsoïde de colline.
     pub fn hauteur_sol(&self, x: f32, z: f32) -> f32 {
-        self.0
-            .iter()
+        self.iter()
             .map(|(c, r)| {
                 let (dx, dz) = ((x - c.x) / r.x, (z - c.z) / r.z);
                 let dedans = 1.0 - dx * dx - dz * dz;
@@ -50,7 +54,6 @@ pub fn creer_prairie_et_collines(
     mut mats_nature: ResMut<Assets<MateriauNature>>,
     mut alea: ResMut<AleaDecor>,
 ) {
-    let alea = &mut alea.0;
     let prairie = mats_nature.add(nature(0.0, [0.10, 0.30, 0.03], [0.42, 0.66, 0.10], 3.0, 0.4, 1.0));
     let colline = mats_nature.add(nature(0.0, [0.14, 0.36, 0.05], [0.45, 0.66, 0.14], 3.0, 0.4, 0.0));
 
@@ -78,6 +81,9 @@ pub fn creer_prairie_et_collines(
     let maillage_colline = maillages.add(Sphere::new(1.0).mesh().ico(4).unwrap());
     let mut collines = Vec::new();
     for i in 0..14 {
+        // alea.entre(...) : ResMut<AleaDecor> -> AleaDecor -> Alea, par Deref/DerefMut (voir decor/mod.rs).
+        // Doc : https://docs.rs/bevy/latest/bevy/prelude/derive.DerefMut.html
+        // Rust : https://doc.rust-lang.org/book/ch15-02-deref.html#using-deref-coercion-in-functions-and-methods
         let a = i as f32 / 14.0 * TAU + alea.entre(-0.2, 0.2);
         let r = alea.entre(30.0, 60.0);
         let d = alea.entre(70.0, 120.0);
@@ -104,7 +110,6 @@ pub fn creer_rochers_et_buissons(
     mut mats_nature: ResMut<Assets<MateriauNature>>,
     mut alea: ResMut<AleaDecor>,
 ) {
-    let alea = &mut alea.0;
     let buisson = mats_nature.add(nature(3.0, [0.08, 0.26, 0.04], [0.40, 0.64, 0.12], 5.0, 0.6, 1.0));
     let roche = mats_nature.add(nature(2.0, [0.20, 0.20, 0.20], [0.52, 0.50, 0.47], 2.5, 0.5, 1.0));
     let rochers: Vec<_> = (0..14)

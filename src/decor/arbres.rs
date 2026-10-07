@@ -35,11 +35,13 @@ pub fn creer_arbres(
     collines: Res<Collines>,
     mut alea: ResMut<AleaDecor>,
 ) {
-    let alea = &mut alea.0;
     // add : stocke l'asset et renvoie son Handle.
     // Book : https://bevy.org/learn/book/assets/bevy-s-asset-framework/#the-basics-of-loading-assets
     // Doc : https://docs.rs/bevy/latest/bevy/asset/struct.Assets.html#method.add
     let ecorce = mats_nature.add(nature(4.0, [0.05, 0.035, 0.025], [0.17, 0.13, 0.095], 5.0, 0.35, 1.0));
+    // alea.entre(...) : ResMut<AleaDecor> -> AleaDecor -> Alea, par Deref/DerefMut (voir decor/mod.rs).
+    // Doc : https://docs.rs/bevy/latest/bevy/prelude/derive.DerefMut.html
+    // Rust : https://doc.rust-lang.org/book/ch15-02-deref.html#using-deref-coercion-in-functions-and-methods
     let mut emplacements: Vec<(f32, f32, f32)> =
         (0..9).map(|_| (alea.entre(0.0, TAU), alea.entre(10.5, 13.0), alea.entre(1.0, 1.35))).collect();
     emplacements.extend((0..22).map(|i| (i as f32 / 22.0 * TAU + alea.entre(-0.12, 0.12), alea.entre(15.5, 24.0), alea.entre(1.1, 1.7))));

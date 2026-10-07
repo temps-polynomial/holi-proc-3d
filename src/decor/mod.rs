@@ -56,5 +56,13 @@ impl Plugin for PluginDecor {
 // Resource : donnée globale unique.
 // Book : https://bevy.org/learn/book/storing-data/resources/
 // Doc : https://docs.rs/bevy/latest/bevy/ecs/resource/trait.Resource.html
-#[derive(Resource)]
+// Deref / DerefMut : la ressource se comporte comme l'Alea qu'elle contient ; les systèmes
+// appellent `alea.entre(...)` directement sur ResMut<AleaDecor>, sans `.0`.
+// Book : https://bevy.org/learn/book/storing-data/designing-components/#guidance-for-structuring-components
+// Ex : https://github.com/bevyengine/bevy/blob/release-0.19.1/examples/ecs/message.rs#L22-L25
+// Ex : https://github.com/bevyengine/bevy/blob/release-0.19.1/examples/ecs/message.rs#L40-L45
+// Doc : https://docs.rs/bevy/latest/bevy/prelude/derive.Deref.html
+// Doc : https://docs.rs/bevy/latest/bevy/prelude/derive.DerefMut.html
+// Rust : https://doc.rust-lang.org/book/ch15-02-deref.html#implementing-the-deref-trait
+#[derive(Resource, Deref, DerefMut)]
 struct AleaDecor(Alea);
